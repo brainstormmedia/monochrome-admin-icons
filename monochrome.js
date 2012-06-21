@@ -20,13 +20,28 @@ jQuery(document).ready(function($){
 
 			// Attach to load event of individual images in the Admin Menu
 			// Hide to reduce visibility of color icons
-			if ( canvas_supported() ) {
-				$imgs.each( process_with_canvas );
+			if ( 
+				!webkit_filter_supported()
+				&& !filter_supported()
+				&& canvas_supported() 
+			) {
+				$imgs.hide().each( process_with_canvas );
 				canvas_hover_states();
-			}else {
-				$imgs.show();
+				alert('canvas');
 			}
 
+		}
+
+		var webkit_filter_supported = function() {
+			return '-webkit-filter' in document.body.style;
+		}
+
+		var filter_supported = function() {
+			if ( $.browser.webkit ) {
+				return false;
+			}else {
+				return 'filter' in document.body.style;
+			}
 		}
 
 		var canvas_supported = function(){
