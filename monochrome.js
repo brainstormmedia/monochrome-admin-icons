@@ -1,71 +1,137 @@
 jQuery(document).ready(function($){
-	$('#adminmenu > li:not(.wp-has-current-submenu)').hover(
-		function(){
-			$(this).find('img.mono').eq(0).css('opacity', 1);
-		},
-		function(){
-			$(this).find('img.mono').eq(0).css('opacity', 0);
-		}
-	);
-	
-	$('#adminmenu img').hide(); // Avoid image flicker
+	$('#adminmenu').monochrome_admin_icons();
 });
 
-// Attach to load event of individual images in the Admin Menu
-// This selector doesn't effect default WordPress icons, because they're background sprites, not img tags
-jQuery('#adminmenu > li:not(.wp-has-current-submenu) img').bind('load', storm_monochrome_imgs);
+(function($) {
 
-function storm_monochrome_imgs(){
-	// Technique from http://webdesignerwall.com/tutorials/html5-grayscale-image-hover
-	var $ = jQuery;
-	var img = $(this);
-	console.log( img.height() );
+	$.monochrome_admin_icons = function(menu, options) {
 
-	if ( img.parent().hasClass('mono-wrap') ) { return; } // Prevent recursion
-	if ( img.height() > 20 ) { return; } // Single icons are 16px tall. This is probably a sprite already.
+		var defaults = {},
+				plugin = this,
+				$menu = $(menu),
+				menu = menu,
+				$submenus = $menu.find('> li:not(.wp-has-current-submenu)'),
+				$imgs = $submenus.find('img'); // This selector doesn't get default WordPress icons. They're background sprites, not img tags.
 
-	console.log( $(this).parent().attr('aria-label')+': '+img.attr('src'));
+			plugin.settings = {}
 
-	img.css({'position':'absolute'})
-		.wrap('<div class="mono-wrap" style="display: inline-block">')
-		.clone()
-		.addClass('mono')
-		.css({'position':'absolute','z-index':'998','opacity':'0','display':'block'})
-		.insertBefore(img)
-		.queue(function(){
-			var img = $(this);
-			img.parent().css({'width':this.width,'height':this.height});
-			img.dequeue();
-		});
+		plugin.init = function() {
+			plugin.settings = $.extend({}, defaults, options);
 
-	this.src = grayscale(this.src);
-	
-	// Grayscale w canvas method
-	function grayscale(src){
-		var canvas = document.createElement('canvas');
-		var ctx = canvas.getContext('2d');
-		var imgObj = new Image();
-		imgObj.src = src;
-		canvas.width = imgObj.width;
-		canvas.height = imgObj.height; 
-		ctx.drawImage(imgObj, 0, 0); 
-		var imgPixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
-		for(var y = 0; y < imgPixels.height; y++){
-			for(var x = 0; x < imgPixels.width; x++){
-				var i = (y * 4) * imgPixels.width + x * 4;
-				var avg = (imgPixels.data[i] + imgPixels.data[i + 1] + imgPixels.data[i + 2]) / 3;
-				imgPixels.data[i] = avg; 
-				imgPixels.data[i + 1] = avg; 
-				imgPixels.data[i + 2] = avg;
+			// Attach to load event of individual images in the Admin Menu
+			// Hide to reduce visibility of color icons
+			if ( 
+				!webkit_filter_supported()
+				&& !filter_supported()
+				&& canvas_supported() 
+			) {
+				$imgs.hide().each( process_with_canvas );
+				canvas_hover_states();
+				alert('canvas');
+			}
+
+		}
+
+		var webkit_filter_supported = function() {
+			return '-webkit-filter' in document.body.style;
+		}
+
+		var filter_supported = function() {
+			if ( $.browser.webkit ) {
+				return false;
+			}else {
+				return 'filter' in document.body.style;
 			}
 		}
-		ctx.putImageData(imgPixels, 0, 0, 0, 0, imgPixels.width, imgPixels.height);
-		return canvas.toDataURL();
-	 }
-}
 
-// All images on the page have loaded.
-// It's safe to show Admin menu images
-jQuery(window).load(function($){
-	jQuery('#adminmenu img').show(); // Avoid image flicker
-});
+		var canvas_supported = function(){
+			var elem = document.createElement('canvas');
+			return !!(elem.getContext && elem.getContext('2d'));
+		}
+
+		var canvas_hover_states = function(){
+			$submenus.hover(
+				function(){
+					var img = $(this).find('img.mono');
+					img.attr('src', img.data('color-src'));
+				},
+				function(){
+					var img = $(this).find('img.mono');
+					img.attr('src', img.data('mono-src'));
+				}
+			);
+		}
+
+		/**
+		 * See http://webdesignerwall.com/tutorials/html5-grayscale-image-hover
+		 */
+		var process_with_canvas = function(){
+			var img = $(this),
+				img_tmp = new Image(),
+				color_src = img.attr('src');
+
+			// Wait until image data loads to process anything
+			$( img_tmp ).bind( 'load', function(){ canvas_onload( img, img_tmp ) } );
+
+			img.data( 'color-src', color_src );
+			img_tmp.src = color_src;
+		}
+
+		var canvas_onload = function( img, img_tmp ) {
+			var canvas = document.createElement('canvas'),
+				ctx = canvas.getContext('2d'),
+				imgPixels,
+				mono_src;
+
+			if ( img_tmp.height > 20 ) {
+				// Single icons are 16px tall. This is probably a sprite.
+				img.show();
+				return;
+			}
+
+			canvas.width = img_tmp.width;
+			canvas.height = img_tmp.height; 
+			ctx.drawImage(img_tmp, 0, 0); // Insert image into canvas
+			imgPixels = ctx.getImageData(0, 0, canvas.width, canvas.height); // Load image pixels
+
+			// Calculate monochrome pixel values
+			for(var y = 0; y < imgPixels.height; y++){
+				for(var x = 0; x < imgPixels.width; x++){
+					var i = (y * 4) * imgPixels.width + x * 4;
+					var avg = (imgPixels.data[i] + imgPixels.data[i + 1] + imgPixels.data[i + 2]) / 3;
+					imgPixels.data[i] = avg; 
+					imgPixels.data[i + 1] = avg; 
+					imgPixels.data[i + 2] = avg;
+				}
+			}
+			// Replace color pixels with monochrome values
+			ctx.putImageData(imgPixels, 0, 0, 0, 0, imgPixels.width, imgPixels.height);
+			
+			// Convert canvas to base64 encoded URL
+			mono_src = canvas.toDataURL();
+
+			// Update the color image with new data
+			img.attr('src', mono_src)
+				.data('mono-src', mono_src)
+				.addClass('mono');
+
+			// Avoid flicker
+			setTimeout(function(){ img.show(); }, 200 );
+		}
+
+		plugin.init();
+
+	}
+
+	$.fn.monochrome_admin_icons = function(options) {
+
+		return this.each(function() {
+				if (undefined == $(this).data('monochrome_admin_icons')) {
+					var plugin = new $.monochrome_admin_icons(this, options);
+					$(this).data('monochrome_admin_icons', plugin);
+				}
+		});
+
+	}
+
+})(jQuery);
