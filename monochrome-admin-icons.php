@@ -12,3 +12,12 @@ add_action('admin_init', 'storm_monochrome_admin_icons');
 function storm_monochrome_admin_icons(){
 	wp_enqueue_script('monochrome-admin-icons', plugin_dir_url( __FILE__ ).'monochrome.js', array('jquery'), '1.0', false);
 }
+
+add_action('admin_head', 'storm_monochrome_admin_css');
+function storm_monochrome_admin_css(){
+	?>
+	<style>
+		#adminmenu > li.wp-not-current-submenu img { display:none; }
+	</style>
+	<?php
+}
