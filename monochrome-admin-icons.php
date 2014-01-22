@@ -3,8 +3,10 @@
 Plugin Name: Monochrome Admin Icons
 Description: Make plugin admin icons follow <a href="http://dotorgstyleguide.wordpress.com/outline/icons/">WordPress guidelines</a>: Monochrome by default, color when active.
 Version: 1.1.3
-Author: Brainstorm Media
-Author URI: http://brainstormmedia.com
+Author: Paul Clark, 10up
+Author URI: http://pdclark.com
+License: GPLv2 or later
+License URI: http://www.gnu.org/licenses/gpl-2.0.html
 */
 
 add_action('admin_init', create_function('', 'new Storm_Monochrome_Admin_Icons();') );
